@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>고사 타이머</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4 relative">
+  <!-- ⛶ 전체화면 -->
+  <button id="fullscreenToggle" class="absolute top-4 right-4 px-3 py-1 text-sm bg-gray-800 text-white rounded shadow">⛶ 전체화면</button>
+
+  <!-- 템플릿 선택 -->
+  <div class="flex items-center gap-2 mb-4 w-full max-w-xl">
+    <label for="templateSelect" class="font-semibold">시간표:</label>
+    <select id="templateSelect" class="flex-1 border rounded px-2 py-1"></select>
+    <button id="addTemplate" class="px-2 py-1 bg-gray-200 rounded">새 템플릿</button>
+  </div>
+
+  <!-- 헤더 & 시계 -->
+  <header class="text-3xl font-bold mb-4">정기 고사</header>
+  <div id="clock" class="text-5xl font-mono mb-4"></div>
+
+  <!-- 진행 상황 -->
+  <section class="w-full max-w-xl bg-white rounded-2xl shadow p-4">
+    <div id="currentPeriod" class="text-xl font-semibold mb-2"></div>
+    <div id="remaining" class="text-lg mb-2"></div>
+    <div class="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+      <div id="progressBar" class="h-full bg-blue-500 transition-all"></div>
+    </div>
+  </section>
+
+  <!-- 편집 버튼 -->
+  <button id="toggleEdit" class="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg shadow">시간표 편집</button>
+
+  <!-- 편집기 -->
+  <section id="editor" class="w-full max-w-xl mt-4 hidden">
+    <form id="scheduleForm" class="bg-white p-4 rounded-2xl shadow space-y-2">
+      <div class="flex gap-2 items-center">
+        <label class="w-28">템플릿 이름</label>
+        <input id="templateName" type="text" class="flex-1 border rounded px-2 py-1" required />
+      </div>
+      <template id="rowTemplate">
+        <div class="flex gap-2">
+          <input type="text" placeholder="라벨" class="flex-1 border rounded px-2 py-1 label-input" required />
+          <input type="time" class="w-28 border rounded px-2 py-1 time-input" required />
+          <button type="button" class="remove-row text-red-500 font-bold">×</button>
+        </div>
+      </template>
+      <div id="rows" class="space-y-2"></div>
+      <div class="flex gap-2">
+        <button type="button" id="addRow" class="flex-1 bg-gray-200 rounded py-1">행 추가</button>
+        <button type="submit" class="flex-1 bg-emerald-500 text-white rounded py-1">저장</button>
+      </div>
+    </form>
+  </section>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    /* ---------- 기본 템플릿 ---------- */
+    const defaultTemplates = [
+      {
+        name: "표준 6교시",
+        schedule: [
+          { label: "1교시 예비령", time: "08:20" },
+          { label: "1교시", time: "08:25" },
+          { label: "종료 및 휴식", time: "09:15" },
+          { label: "2교시 예비령", time: "09:25" },
+          { label: "2교시 본령", time: "09:30" },
+          { label: "종료 및 휴식", time: "10:20" },
+          { label: "3교시 예비령", time: "10:30" },
+          { label: "3교시", time: "10:35" },
+          { label: "종료 및 휴식", time: "11:25" },
+          { label: "4교시 예비령", time: "11:35" },
+          { label: "4교시", time: "11:40" },
+          { label: "점심 시간", time: "12:30" },
+          { label: "5교시 예비령", time: "13:30" },
+          { label: "5교시", time: "13:35" },
+          { label: "종료 및 휴식", time: "14:25" },
+          { label: "6교시 예비령", time: "14:35" },
+          { label: "6교시", time: "14:40" },
+          { label: "종료 및 휴식", time: "15:30" }
+        ]
+      },
+      {
+        name: "간단 2교시",
+        schedule: [
+          { label: "1교시 예비령", time: "08:20" },
+          { label: "1교시 시작", time: "08:25" },
+          { label: "휴식", time: "09:15" },
+          { label: "2교시 예비령", time: "09:25" },
+          { label: "2교시 시작", time: "09:30" },
+          { label: "점심", time: "10:20" }
+        ]
+      }
+    ];
+
+    /* ---------- LocalStorage ---------- */
+    const loadTemplates = () => {
+      try {
+        const data = JSON.parse(localStorage.getItem('examTemplates'));
+        if (Array.isArray(data) && data.every(t => t.name && Array.isArray(t.schedule))) return data;
+      } catch {}
+      return defaultTemplates;
+    };
+    const saveTemplates = t => localStorage.setItem('examTemplates', JSON.stringify(t));
+    const loadIndex = max => {
+      const idx = parseInt(localStorage.getItem('examTemplateIndex'));
+      return isNaN(idx) || idx < 0 || idx >= max ? 0 : idx;
+    };
+    const saveIndex = idx => localStorage.setItem('examTemplateIndex', idx);
+
+    let templates = loadTemplates();
+    let currentIndex = loadIndex(templates.length);
+    let schedule = structuredClone(templates[currentIndex].schedule);
+
+    /* ---------- DOM ---------- */
+    const templateSelect = document.getElementById('templateSelect');
+    const addTemplateBtn = document.getElementById('addTemplate');
+    const fullscreenToggle = document.getElementById('fullscreenToggle');
+    const clockEl = document.getElementById('clock');
+    const currentPeriodEl = document.getElementById('currentPeriod');
+    const remainingEl = document.getElementById('remaining');
+    const progressBarEl = document.getElementById('progressBar');
+    const toggleEdit = document.getElementById('toggleEdit');
+    const editor = document.getElementById('editor');
+    const scheduleForm = document.getElementById('scheduleForm');
+    const templateNameInput = document.getElementById('templateName');
+    const rows = document.getElementById('rows');
+    const tpl = document.getElementById('rowTemplate').content;
+    const addRowBtn = document.getElementById('addRow');
+
+    /* ---------- 템플릿 UI ---------- */
+    function refreshTemplateSelect() {
+      templateSelect.innerHTML = templates.map((t,i) => `<option value="${i}" ${i===currentIndex?'selected':''}>${t.name}</option>`).join('');
+    }
+    refreshTemplateSelect();
+
+    templateSelect.onchange = () => {
+      currentIndex = parseInt(templateSelect.value);
+      saveIndex(currentIndex);
+      schedule = structuredClone(templates[currentIndex].schedule);
+      tick();
+    };
+
+    addTemplateBtn.onclick = () => {
+      const name = prompt('새 템플릿 이름');
+      if(!name) return;
+      if(templates.some(t=>t.name===name)) return alert('중복 이름');
+      templates.push({name, schedule: structuredClone(schedule)});
+      saveTemplates(templates);
+      currentIndex = templates.length-1;
+      saveIndex(currentIndex);
+      refreshTemplateSelect();
+      alert('템플릿 저장');
+    };
+
+    /* ---------- 시계 & 진행 ---------- */
+    function toToday(t){const [h,m]=t.split(':').map(Number);const d=new Date();d.setHours(h,m,0,0);return d;}
+    function renderProgress(now){
+      const events=schedule.map(e=>({...e,date:toToday(e.time)})).sort((a,b)=>a.date-b.date);
+      let prev=null,next=null;
+      for(let i=0;i<events.length;i++) if(now<events[i].date){next=events[i];prev=events[i-1]||null;break;}
+      if(!next){currentPeriodEl.textContent='일정 종료';remainingEl.textContent='';progressBarEl.style.width='100%';return;}
+      const start=prev?prev.date:new Date(now.setHours(0,0,0,0));
+      const total=next.date-start;const elapsed=now-start;const pct=Math.max(0,Math.min(100,elapsed/total*100));
+      currentPeriodEl.textContent=`다음: ${next.label} (${next.time})`;
+      const rem=Math.floor((next.date-now)/1000);remainingEl.textContent=`남은 시간: ${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
+      progressBarEl.style.width=pct+'%';
+    }
+    function tick(){const now=new Date();clockEl.textContent=now.toLocaleTimeString('ko-KR',{hour12:false});renderProgress(now);} setInterval(tick,1000); tick();
+
+    /* ---------- 편집기 ---------- */
+    function addRow(label='',time=''){
+      const n=tpl.cloneNode(true);
+      n.querySelector('.label-input').value=label;
+      n.querySelector('.time-input').value=time;
+      n.querySelector('.remove-row').onclick=e=>e.target.parentElement.remove();
+      rows.appendChild(n);
+    }
+    function buildEditor(){
+      rows.innerHTML='';
+      schedule.forEach(s=>addRow(s.label,s.time));
+      templateNameInput.value=templates[currentIndex].name;
+    }
+    addRowBtn.onclick=()=>addRow();
+
+    toggleEdit.onclick=()=>{
+      if(editor.classList.contains('hidden')){buildEditor();editor.classList.remove('hidden');toggleEdit.textContent='편집 닫기';}else{editor.classList.add('hidden');toggleEdit.textContent='시간표 편집';}
+    };
+
+    scheduleForm.onsubmit=e=>{
+      e.preventDefault();
+      const name=templateNameInput.value.trim();
+      const newRows=[...rows.children].map(r=>({label:r.querySelector('.label-input').value.trim(),time:r.querySelector('.time-input').value})).filter(r=>r.label&&r.time);
+      if(!name||!newRows.length) return alert('이름/내용 확인');
+      templates[currentIndex]={name, schedule:newRows.sort((a,b)=>a.time.localeCompare(b.time))};
+      saveTemplates(templates);refreshTemplateSelect();schedule=structuredClone(templates[currentIndex].schedule);tick();editor.classList.add('hidden');toggleEdit.textContent='시간표 편집';
+    };
+
+    /* ---------- 전체화면 ---------- */
+    fullscreenToggle.onclick=()=>{ if(!document.fullscreenElement){document.documentElement.requestFullscreen();} else{document.exitFullscreen();} };
+  });
+  </script>
+</body>
+</html>
