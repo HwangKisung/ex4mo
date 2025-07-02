@@ -11,15 +11,15 @@
   <button id="fullscreenToggle" class="absolute top-4 right-4 px-3 py-1 text-sm bg-gray-800 text-white rounded shadow">⛶ 전체화면</button>
 
   <!-- 템플릿 선택 -->
-  <div class="flex items-center gap-2 mb-4 w-full max-w-xl">
-    <label for="templateSelect" class="font-semibold">시간표:</label>
+  <div id="templateBar" class="flex items-center gap-2 mb-4 w-full max-w-xl sticky top-0 bg-gray-100/90 backdrop-blur z-10 py-1 rounded-lg shadow-sm pr-16">
+    <label for="templateSelect" class="font-semibold whitespace-nowrap pl-2">시간표:</label>
     <select id="templateSelect" class="flex-1 border rounded px-2 py-1"></select>
-    <button id="addTemplate" class="px-2 py-1 bg-gray-200 rounded">새 템플릿</button>
+    <button id="addTemplate" class="px-2 py-1 bg-gray-200 rounded whitespace-nowrap">새 템플릿</button>
   </div>
 
   <!-- 헤더 & 시계 -->
-  <header class="text-3xl font-bold mb-4">정기 고사</header>
-  <div id="clock" class="text-5xl font-mono mb-4"></div>
+  <header id="examHeader" class="text-3xl font-bold mb-4 select-none">(대기 중)</header>
+  <div id="clock" class="text-5xl font-mono mb-4 select-none"></div>
 
   <!-- 진행 상황 -->
   <section class="w-full max-w-xl bg-white rounded-2xl shadow p-4">
@@ -83,17 +83,53 @@
         ]
       },
       {
-        name: "간단 2교시",
+        name: "탐구통합 모의고사",
         schedule: [
-          { label: "1교시 예비령", time: "08:20" },
-          { label: "1교시 시작", time: "08:25" },
-          { label: "휴식", time: "09:15" },
-          { label: "2교시 예비령", time: "09:25" },
-          { label: "2교시 시작", time: "09:30" },
-          { label: "점심", time: "10:20" }
+          { label: "1교시 입실", time: "08:10" },
+          { label: "1교시 준비령", time: "08:35" },
+          { label: "1교시 국어", time: "08:40" },
+          { label: "종료 및 휴식", time: "10:00" },
+          { label: "2교시 준비령", time: "10:25" },
+          { label: "2교시 수학", time: "10:30" },
+          { label: "점심", time: "12:10" },
+          { label: "3교시 준비령", time: "13:05" },
+          { label: "듣기평가 안내방송", time: "13:07" },
+          { label: "3교시 영어", time: "13:10" },
+          { label: "종료 및 휴식", time: "14:20" },
+          { label: "4교시 준비령", time: "14:45" },
+          { label: "4교시 한국사", time: "14:50" },
+          { label: "한국사 종료 사탐 문제지 배부", time: "15:20" },
+          { label: "4교시 사탐", time: "15:35" },
+          { label: "사탐 종료 과탐 문제지 배부", time: "16:15" },
+          { label: "4교시 탐구", time: "16:30" },
+          { label: "종료 및 휴식", time: "17:10" }
+        ]
+      },
+      {
+        name: "모의고사(사탐과탐분리)",
+        schedule: [
+          { label: "1교시 입실", time: "08:10" },
+          { label: "1교시 준비령", time: "08:35" },
+          { label: "1교시 국어", time: "08:40" },
+          { label: "종료 및 휴식", time: "10:00" },
+          { label: "2교시 준비령", time: "10:25" },
+          { label: "2교시 수학", time: "10:30" },
+          { label: "점심", time: "12:10" },
+          { label: "3교시 준비령", time: "13:05" },
+          { label: "듣기평가 안내방송", time: "13:07" },
+          { label: "3교시 영어", time: "13:10" },
+          { label: "종료 및 휴식", time: "14:20" },
+          { label: "4교시 준비령", time: "14:45" },
+          { label: "4교시 한국사", time: "14:50" },
+          { label: "한국사 종료 사탐 문제지 배부", time: "15:20" },
+          { label: "4교시 탐구1", time: "15:35" },
+          { label: "문제지 교체", time: "16:05" },
+          { label: "4교시 탐구2", time: "16:07" },
+          { label: "종료 및 휴식", time: "16:37" }
         ]
       }
     ];
+
 
     /* ---------- LocalStorage ---------- */
     const loadTemplates = () => {
@@ -115,20 +151,50 @@
     let schedule = structuredClone(templates[currentIndex].schedule);
 
     /* ---------- DOM ---------- */
-    const templateSelect = document.getElementById('templateSelect');
-    const addTemplateBtn = document.getElementById('addTemplate');
+    const templateSelect   = document.getElementById('templateSelect');
+    const addTemplateBtn   = document.getElementById('addTemplate');
     const fullscreenToggle = document.getElementById('fullscreenToggle');
-    const clockEl = document.getElementById('clock');
-    const currentPeriodEl = document.getElementById('currentPeriod');
-    const remainingEl = document.getElementById('remaining');
-    const progressBarEl = document.getElementById('progressBar');
-    const toggleEdit = document.getElementById('toggleEdit');
-    const editor = document.getElementById('editor');
-    const scheduleForm = document.getElementById('scheduleForm');
-    const templateNameInput = document.getElementById('templateName');
-    const rows = document.getElementById('rows');
-    const tpl = document.getElementById('rowTemplate').content;
-    const addRowBtn = document.getElementById('addRow');
+    const clockEl          = document.getElementById('clock');
+    const currentPeriodEl  = document.getElementById('currentPeriod');
+    const remainingEl      = document.getElementById('remaining');
+    const progressBarEl    = document.getElementById('progressBar');
+    const toggleEdit       = document.getElementById('toggleEdit');
+    const editor           = document.getElementById('editor');
+    const scheduleForm     = document.getElementById('scheduleForm');
+    const templateNameInput= document.getElementById('templateName');
+    const rows             = document.getElementById('rows');
+    const tpl              = document.getElementById('rowTemplate').content;
+    const addRowBtn        = document.getElementById('addRow');
+
+    /* ---------- 헬퍼 ---------- */
+    // 헤더 갱신: 현재 진행 중인 고사(=prev.label)와 시작~종료 시각
+function renderHeader(now = new Date()) {
+  const events = buildEvents();                 // 오늘 일정 정렬
+  const idx    = events.findIndex(e => now < e.date);
+
+  if (idx === -1) {                             // 전체 종료
+    examHeader.textContent = "일정 종료";
+    return;
+  }
+  if (idx === 0) {                              // 아직 첫 종이 전
+    examHeader.textContent = "대기 중";
+    return;
+  }
+
+  const prev = events[idx - 1];
+  const next = events[idx];
+  examHeader.textContent = `${prev.label} (${prev.time} ~ ${next.time})`;
+}
+
+    const pad = num => String(num).padStart(2,'0');
+    const toToday = t => {
+      const [h,m] = t.split(':').map(Number);
+      const d = new Date();
+      d.setHours(h,m,0,0);
+      return d;
+    };
+
+    const buildEvents = () => schedule.map(e=>({...e,date:toToday(e.time)})).sort((a,b)=>a.date-b.date);
 
     /* ---------- 템플릿 UI ---------- */
     function refreshTemplateSelect() {
@@ -140,6 +206,7 @@
       currentIndex = parseInt(templateSelect.value);
       saveIndex(currentIndex);
       schedule = structuredClone(templates[currentIndex].schedule);
+      renderHeader();        // ← 이 줄
       tick();
     };
 
@@ -156,50 +223,100 @@
     };
 
     /* ---------- 시계 & 진행 ---------- */
-    function toToday(t){const [h,m]=t.split(':').map(Number);const d=new Date();d.setHours(h,m,0,0);return d;}
     function renderProgress(now){
-      const events=schedule.map(e=>({...e,date:toToday(e.time)})).sort((a,b)=>a.date-b.date);
-      let prev=null,next=null;
-      for(let i=0;i<events.length;i++) if(now<events[i].date){next=events[i];prev=events[i-1]||null;break;}
-      if(!next){currentPeriodEl.textContent='일정 종료';remainingEl.textContent='';progressBarEl.style.width='100%';return;}
-      const start=prev?prev.date:new Date(now.setHours(0,0,0,0));
-      const total=next.date-start;const elapsed=now-start;const pct=Math.max(0,Math.min(100,elapsed/total*100));
-      currentPeriodEl.textContent=`다음: ${next.label} (${next.time})`;
-      const rem=Math.floor((next.date-now)/1000);remainingEl.textContent=`남은 시간: ${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
-      progressBarEl.style.width=pct+'%';
+      const events = buildEvents();
+      const idx = events.findIndex(ev=> now < ev.date);
+
+      // 일정 완료
+      if(idx === -1){
+        currentPeriodEl.textContent='일정 종료';
+        remainingEl.textContent='';
+        progressBarEl.style.width='100%';
+        return;
+      }
+
+      const next = events[idx];
+      const prev = idx > 0 ? events[idx-1] : null;
+
+      // 아직 시작 전
+      if(!prev){
+        currentPeriodEl.textContent = `대기: ${next.label} (${next.time})`;
+        const remSec = Math.ceil((next.date - now)/1000);
+        remainingEl.textContent = `남은 시간: ${pad(Math.floor(remSec/60))}분${pad(remSec%60)}초`;
+        progressBarEl.style.width = '0%';
+        return;
+      }
+
+      // 진행 중
+      currentPeriodEl.textContent = `${prev.label} (${prev.time} - ${next.time})`;
+      const total   = next.date - prev.date;
+      const elapsed = now - prev.date;
+      const pct     = Math.max(0, Math.min(100, elapsed / total * 100));
+      const remSec  = Math.ceil((next.date - now)/1000);
+      remainingEl.textContent = `남은 시간: ${pad(Math.floor(remSec/60))}분${pad(remSec%60)}초`;
+      progressBarEl.style.width = pct + '%';
     }
-    function tick(){const now=new Date();clockEl.textContent=now.toLocaleTimeString('ko-KR',{hour12:false});renderProgress(now);} setInterval(tick,1000); tick();
+
+    function tick(){
+      const now = new Date();
+      clockEl.textContent = `${pad(now.getHours())}시${pad(now.getMinutes())}분${pad(now.getSeconds())}초`;
+      renderHeader(now);   // ← 추가
+      renderProgress(now);
+    }
+    renderHeader();  // 최초 1회
+    setInterval(tick,1000);
+    tick();
 
     /* ---------- 편집기 ---------- */
     function addRow(label='',time=''){
-      const n=tpl.cloneNode(true);
-      n.querySelector('.label-input').value=label;
-      n.querySelector('.time-input').value=time;
-      n.querySelector('.remove-row').onclick=e=>e.target.parentElement.remove();
+      const n = tpl.cloneNode(true);
+      n.querySelector('.label-input').value = label;
+      n.querySelector('.time-input').value  = time;
+      n.querySelector('.remove-row').onclick = e => e.target.parentElement.remove();
       rows.appendChild(n);
     }
     function buildEditor(){
       rows.innerHTML='';
       schedule.forEach(s=>addRow(s.label,s.time));
-      templateNameInput.value=templates[currentIndex].name;
+      templateNameInput.value = templates[currentIndex].name;
     }
-    addRowBtn.onclick=()=>addRow();
+    addRowBtn.onclick = () => addRow();
 
-    toggleEdit.onclick=()=>{
-      if(editor.classList.contains('hidden')){buildEditor();editor.classList.remove('hidden');toggleEdit.textContent='편집 닫기';}else{editor.classList.add('hidden');toggleEdit.textContent='시간표 편집';}
+    toggleEdit.onclick = () => {
+      if(editor.classList.contains('hidden')){
+        buildEditor();
+        editor.classList.remove('hidden');
+        toggleEdit.textContent = '편집 닫기';
+      }else{
+        editor.classList.add('hidden');
+        toggleEdit.textContent = '시간표 편집';
+      }
     };
 
-    scheduleForm.onsubmit=e=>{
+    scheduleForm.onsubmit = e => {
       e.preventDefault();
-      const name=templateNameInput.value.trim();
-      const newRows=[...rows.children].map(r=>({label:r.querySelector('.label-input').value.trim(),time:r.querySelector('.time-input').value})).filter(r=>r.label&&r.time);
-      if(!name||!newRows.length) return alert('이름/내용 확인');
-      templates[currentIndex]={name, schedule:newRows.sort((a,b)=>a.time.localeCompare(b.time))};
-      saveTemplates(templates);refreshTemplateSelect();schedule=structuredClone(templates[currentIndex].schedule);tick();editor.classList.add('hidden');toggleEdit.textContent='시간표 편집';
+      const name = templateNameInput.value.trim();
+      const newRows = [...rows.children]
+        .map(r=>({label:r.querySelector('.label-input').value.trim(), time:r.querySelector('.time-input').value}))
+        .filter(r=>r.label && r.time);
+      if(!name || !newRows.length) return alert('이름/내용 확인');
+      templates[currentIndex] = { name, schedule: newRows.sort((a,b)=> a.time.localeCompare(b.time)) };
+      saveTemplates(templates);
+      refreshTemplateSelect();
+      schedule = structuredClone(templates[currentIndex].schedule);
+      tick();
+      editor.classList.add('hidden');
+      toggleEdit.textContent = '시간표 편집';
     };
 
     /* ---------- 전체화면 ---------- */
-    fullscreenToggle.onclick=()=>{ if(!document.fullscreenElement){document.documentElement.requestFullscreen();} else{document.exitFullscreen();} };
+    fullscreenToggle.onclick = () => {
+      if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen();
+      }else{
+        document.exitFullscreen();
+      }
+    };
   });
   </script>
 </body>
